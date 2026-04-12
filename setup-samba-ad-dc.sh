@@ -102,8 +102,15 @@ function install_tls_certs() {
 
 function configure_samba_tls() {
   if docker exec "$CONTAINER_NAME" test -f /etc/samba/smb.conf >/dev/null 2>&1; then
-    echo "Configuring Samba for plain LDAP bind support..."
-    docker exec "$CONTAINER_NAME" bash -lc "sed -i '/^tls enabled/d;/^tls keyfile/d;/^tls certfile/d;/^tls cafile/d;/^ldap server require strong auth/d' /etc/samba/smb.conf && awk '/^\[global\]/{print; print \"    ldap server require strong auth = no\"; print \"    tls enabled = no\"; next}1' /etc/samba/smb.conf > /tmp/smb.conf.new && mv /tmp/smb.conf.new /etc/samba/smb.conf"
+    echo "Configuring Samba TLS settings..."
+    docker exec "$CONTAINER_NAME" bash -lc "sed -i '/^[[:space:]]*tls enabled/d;/^[[:space:]]*tls keyfile/d;/^[[:space:]]*tls certfile/d;/^[[:space:]]*tls cafile/d;/^[[:space:]]*ldap server require strong auth/d' /etc/samba/smb.conf"
+
+    if docker exec "$CONTAINER_NAME" test -f /var/lib/samba/private/tls/cert.pem >/dev/null 2>&1 && docker exec "$CONTAINER_NAME" test -f /var/lib/samba/private/tls/key.pem >/dev/null 2>&1; then
+      docker exec "$CONTAINER_NAME" bash -lc "awk '/^\[global\]/{print; print \"    ldap server require strong auth = no\"; print \"    tls enabled = yes\"; print \"    tls certfile = /var/lib/samba/private/tls/cert.pem\"; print \"    tls keyfile = /var/lib/samba/private/tls/key.pem\"; print \"    tls cafile = /var/lib/samba/private/tls/ca.pem\"; next}1' /etc/samba/smb.conf > /tmp/smb.conf.new && mv /tmp/smb.conf.new /etc/samba/smb.conf"
+    else
+      docker exec "$CONTAINER_NAME" bash -lc "awk '/^\[global\]/{print; print \"    ldap server require strong auth = no\"; next}1' /etc/samba/smb.conf > /tmp/smb.conf.new && mv /tmp/smb.conf.new /etc/samba/smb.conf"
+      echo "Warning: TLS cert/key pair unavailable, LDAPS will not be enabled." >&2
+    fi
   fi
 }
 
@@ -135,7 +142,6 @@ function container_running() {
 }
 
 install_tls_certs
-configure_samba_tls
 
 if [[ "$(container_running)" != "true" ]]; then
   echo "Waiting for container $CONTAINER_NAME to start..."
@@ -151,6 +157,8 @@ else
   echo "Samba AD domain already provisioned; skipping provision step."
 fi
 
+configure_samba_tls
+
 echo "Ensuring Administrator password is set..."
 exec_container "samba-tool user setpassword Administrator --newpassword='$ADMIN_PASS'"
 
@@ -162,6 +170,11 @@ echo "Starting Samba AD DC process inside container..."
 exec_container "nohup samba -i >/var/log/samba.log 2>&1 &"
 echo "Waiting for LDAP service on port 389..."
 exec_container "bash -lc 'for i in {1..30}; do echo > /dev/tcp/127.0.0.1/389 >/dev/null 2>&1 && exit 0; sleep 1; done; echo LDAP did not start in time >&2; exit 1'"
+
+if docker exec "$CONTAINER_NAME" test -f /var/lib/samba/private/tls/cert.pem >/dev/null 2>&1 && docker exec "$CONTAINER_NAME" test -f /var/lib/samba/private/tls/key.pem >/dev/null 2>&1; then
+  echo "Waiting for LDAPS service on port 636..."
+  exec_container "bash -lc 'for i in {1..30}; do echo > /dev/tcp/127.0.0.1/636 >/dev/null 2>&1 && exit 0; sleep 1; done; echo LDAPS did not start in time >&2; exit 1'"
+fi
 
 for user in "$USER_NAME" "$USER2_NAME"; do
   if ! exec_container "samba-tool user list | grep -x '$user'" >/dev/null 2>&1; then
