@@ -45,13 +45,13 @@ cd /Users/nrsh13/Desktop/active-directory
 - creates users `768019` and `768020`
 - creates group `A_HADOOP_ADMINS`
 - adds both users to the group
-- validates the domain with an LDAPS search
+- validates the domain with an LDAP search
 
 ### Verify from host
 
 ```bash
-LDAPTLS_REQCERT=never ldapsearch -LLL \
-  -H ldaps://127.0.0.1 \
+ldapsearch -LLL \
+  -H ldap://127.0.0.1:389 \
   -x \
   -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
   -w 'Dummy@2929' \
@@ -62,8 +62,8 @@ LDAPTLS_REQCERT=never ldapsearch -LLL \
 ### Search for user `768019`
 
 ```bash
-LDAPTLS_REQCERT=never ldapsearch -LLL \
-  -H ldaps://127.0.0.1 \
+ldapsearch -LLL \
+  -H ldap://127.0.0.1:389 \
   -x \
   -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
   -w 'Dummy@2929' \
@@ -74,8 +74,8 @@ LDAPTLS_REQCERT=never ldapsearch -LLL \
 ### Bind as user `768019`
 
 ```bash
-LDAPTLS_REQCERT=never ldapsearch -LLL \
-  -H ldaps://127.0.0.1 \
+ldapsearch -LLL \
+  -H ldap://127.0.0.1:389 \
   -x \
   -D "CN=768019,CN=Users,DC=nrsh13-hadoop,DC=com" \
   -w 'Dummy@2929' \
@@ -107,7 +107,7 @@ The AD server stays on your Mac. Any applications on AWS EC2, EKS, or AKS should
 ### Sample cloud app query
 
 ```bash
-ldapsearch -H ldaps://<your-mac-host-or-ip>:636 \
+ldapsearch -H ldap://<your-mac-host-or-ip>:389 \
   -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
   -w 'Dummy@2929' \
   -b "CN=Users,DC=nrsh13-hadoop,DC=com" \
@@ -119,7 +119,7 @@ ldapsearch -H ldaps://<your-mac-host-or-ip>:636 \
 - Your Mac must be reachable from the cloud app host.
 - Use VPN, SSH tunnel, or secure networking if your Mac is behind NAT/firewall.
 - Do not expose the AD host directly to the public internet without access controls.
-- Prefer `ldaps://` for encrypted traffic.
+- If you need encrypted traffic, use `ldaps://` only after importing the Samba certificate into the client truststore.
 
 ## AWS EC2 / EKS / AKS notes
 

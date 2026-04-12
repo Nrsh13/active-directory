@@ -184,7 +184,7 @@ exec_container "samba-tool group addmembers '$GROUP_NAME' '$USER_NAME,$USER2_NAM
 
 echo
 echo "=== Test LDAP query inside container ==="
-exec_container "LDAPTLS_REQCERT=never ldapsearch -LLL -H ldaps://localhost -x -D 'CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com' -w '$ADMIN_PASS' -b 'DC=nrsh13-hadoop,DC=com' '(sAMAccountName=$USER_NAME)'"
+exec_container "ldapsearch -LLL -H ldap://localhost -x -D 'CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com' -w '$ADMIN_PASS' -b 'DC=nrsh13-hadoop,DC=com' '(sAMAccountName=$USER_NAME)'"
 
 echo
 cat <<EOF
@@ -198,17 +198,15 @@ Password: $ADMIN_PASS
 
 Sample ldapsearch command from the Mac host:
 
-export LDAPTLS_REQCERT=never
 export ADMIN_PASS='$ADMIN_PASS'
 export USER_NAME='$USER_NAME'
 
-LDAPTLS_REQCERT=never ldapsearch -LLL \
-  -H ldaps://127.0.0.1 \
+ldapsearch -LLL \
+  -H ldap://127.0.0.1:389 \
   -x \
   -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
   -w '$ADMIN_PASS' \
   -b "DC=nrsh13-hadoop,DC=com" \
   "(sAMAccountName=$USER_NAME)"
 
-If the certificate is trusted, remove `LDAPTLS_REQCERT=never`.
 EOF
