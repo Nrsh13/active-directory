@@ -49,6 +49,8 @@ cd /Users/nrsh13/Desktop/active-directory
 
 ### Verify from host
 
+Samba requires an encrypted bind, so plain `ldap://127.0.0.1` without `-ZZ` will fail with `BindSimple: Transport encryption required.`
+
 ```bash
 export LDAPTLS_CACERT='/path/to/root-ca.crt'
 
@@ -56,6 +58,20 @@ ldapsearch -LLL \
   -H ldap://127.0.0.1:389 \
   -x \
   -ZZ \
+  -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
+  -w 'Dummy@2929' \
+  -b "CN=Users,DC=nrsh13-hadoop,DC=com" \
+  'userPrincipalName=*768019*'
+```
+
+If you want to use LDAPS directly, trust the same CA and use:
+
+```bash
+export LDAPTLS_CACERT='/path/to/root-ca.crt'
+
+ldapsearch -LLL \
+  -H ldaps://127.0.0.1:636 \
+  -x \
   -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
   -w 'Dummy@2929' \
   -b "CN=Users,DC=nrsh13-hadoop,DC=com" \
