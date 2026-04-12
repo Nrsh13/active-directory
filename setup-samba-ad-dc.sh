@@ -101,10 +101,8 @@ function install_tls_certs() {
 
 function configure_samba_tls() {
   if docker exec "$CONTAINER_NAME" test -f /etc/samba/smb.conf >/dev/null 2>&1; then
-    if ! docker exec "$CONTAINER_NAME" grep -q '^tls certfile' /etc/samba/smb.conf >/dev/null 2>&1; then
-      echo "Configuring Samba to use custom TLS certs..."
-      docker exec "$CONTAINER_NAME" bash -lc "printf '%s\n' '# Custom TLS certificate configuration' 'tls enabled = yes' 'tls keyfile = /var/lib/samba/private/tls/key.pem' 'tls certfile = /var/lib/samba/private/tls/cert.pem' 'tls cafile = /var/lib/samba/private/tls/ca.pem' >> /etc/samba/smb.conf"
-    fi
+    echo "Configuring Samba for plain LDAP bind support..."
+    docker exec "$CONTAINER_NAME" bash -lc "sed -i '/^tls enabled/d;/^tls keyfile/d;/^tls certfile/d;/^tls cafile/d;/^ldap server require strong auth/d' /etc/samba/smb.conf && awk '/^\[global\]/{print; print \"    ldap server require strong auth = no\"; print \"    tls enabled = no\"; next}1' /etc/samba/smb.conf > /tmp/smb.conf.new && mv /tmp/smb.conf.new /etc/samba/smb.conf"
   fi
 }
 
@@ -155,6 +153,10 @@ fi
 echo "Ensuring Administrator password is set..."
 exec_container "samba-tool user setpassword Administrator --newpassword='$ADMIN_PASS'"
 
+echo "Stopping any existing Samba server instances..."
+exec_container "pkill -f '^samba:' || true"
+exec_container "sleep 1 || true"
+
 echo "Starting Samba AD DC process inside container..."
 exec_container "nohup samba -i >/var/log/samba.log 2>&1 &"
 echo "Waiting for LDAP service on port 389..."
@@ -183,8 +185,8 @@ echo "Adding users to group $GROUP_NAME..."
 exec_container "samba-tool group addmembers '$GROUP_NAME' '$USER_NAME,$USER2_NAME' || true"
 
 echo
-echo "=== Test LDAP query inside container using StartTLS ==="
-exec_container "LDAPTLS_CACERT=/var/lib/samba/private/tls/ca.pem ldapsearch -LLL -H ldap://localhost -x -ZZ -D 'CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com' -w '$ADMIN_PASS' -b 'DC=nrsh13-hadoop,DC=com' '(sAMAccountName=$USER_NAME)'"
+echo "=== Test LDAP query inside container ==="
+exec_container "ldapsearch -LLL -H ldap://localhost -x -D 'CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com' -w '$ADMIN_PASS' -b 'DC=nrsh13-hadoop,DC=com' '(sAMAccountName=$USER_NAME)'"
 
 echo
 cat <<EOF
@@ -198,14 +200,9 @@ Password: $ADMIN_PASS
 
 Sample ldapsearch command from the Mac host:
 
-export ADMIN_PASS='$ADMIN_PASS'
-export USER_NAME='$USER_NAME'
-export LDAPTLS_CACERT='/path/to/root-ca.crt'
-
 ldapsearch -LLL \
   -H ldap://127.0.0.1:389 \
   -x \
-  -ZZ \
   -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
   -w '$ADMIN_PASS' \
   -b "DC=nrsh13-hadoop,DC=com" \

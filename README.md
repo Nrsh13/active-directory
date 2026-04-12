@@ -49,28 +49,11 @@ cd /Users/nrsh13/Desktop/active-directory
 
 ### Verify from host
 
-Samba requires an encrypted bind, so plain `ldap://127.0.0.1` without `-ZZ` will fail with `BindSimple: Transport encryption required.`
+This local setup now allows plain LDAP binds without requiring certificates or extra environment exports.
 
 ```bash
-export LDAPTLS_CACERT='/path/to/root-ca.crt'
-
 ldapsearch -LLL \
   -H ldap://127.0.0.1:389 \
-  -x \
-  -ZZ \
-  -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
-  -w 'Dummy@2929' \
-  -b "CN=Users,DC=nrsh13-hadoop,DC=com" \
-  'userPrincipalName=*768019*'
-```
-
-If you want to use LDAPS directly, trust the same CA and use:
-
-```bash
-export LDAPTLS_CACERT='/path/to/root-ca.crt'
-
-ldapsearch -LLL \
-  -H ldaps://127.0.0.1:636 \
   -x \
   -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
   -w 'Dummy@2929' \
@@ -96,12 +79,9 @@ ldapsearch -LLL \
 ### Bind as user `768019`
 
 ```bash
-export LDAPTLS_CACERT='/path/to/root-ca.crt'
-
 ldapsearch -LLL \
   -H ldap://127.0.0.1:389 \
   -x \
-  -ZZ \
   -D "CN=768019,CN=Users,DC=nrsh13-hadoop,DC=com" \
   -w 'Dummy@2929' \
   -b "CN=Users,DC=nrsh13-hadoop,DC=com" \
@@ -132,11 +112,8 @@ The AD server stays on your Mac. Any applications on AWS EC2, EKS, or AKS should
 ### Sample cloud app query
 
 ```bash
-export LDAPTLS_CACERT='/path/to/root-ca.crt'
-
 ldapsearch -H ldap://<your-mac-host-or-ip>:389 \
   -x \
-  -ZZ \
   -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
   -w 'Dummy@2929' \
   -b "CN=Users,DC=nrsh13-hadoop,DC=com" \
