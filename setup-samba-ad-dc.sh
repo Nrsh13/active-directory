@@ -28,6 +28,8 @@ function install_tls_certs() {
       if [[ -f "$CERT_DIR/$ROOT_CA_CERT" ]]; then
         docker cp "$CERT_DIR/$ROOT_CA_CERT" "$CONTAINER_NAME":/var/lib/samba/private/tls/ca.pem
       fi
+      exec_container "chown root:root /var/lib/samba/private/tls/cert.pem /var/lib/samba/private/tls/key.pem /var/lib/samba/private/tls/ca.pem 2>/dev/null || true"
+      exec_container "chmod 0600 /var/lib/samba/private/tls/key.pem"
     else
       echo "Warning: expected cert/key not found in $CERT_DIR" >&2
     fi
@@ -36,11 +38,13 @@ function install_tls_certs() {
   fi
 }
 
-echo "=== Samba AD DC setup script ==="
-
-test -x "$(command -v docker)" || {
-  echo "Error: Docker is not installed or not on PATH." >&2
-  exit 1
+function configure_samba_tls() {
+  if docker exec "$CONTAINER_NAME" test -f /etc/samba/smb.conf >/dev/null 2>&1; then
+    if ! docker exec "$CONTAINER_NAME" grep -q '^tls certfile' /etc/samba/smb.conf >/dev/null 2>&1; then
+      echo "Configuring Samba to use custom TLS certs..."
+      docker exec "$CONTAINER_NAME" bash -lc "printf '%s\n' '# Custom TLS certificate configuration' 'tls enabled = yes' 'tls keyfile = /var/lib/samba/private/tls/key.pem' 'tls certfile = /var/lib/samba/private/tls/cert.pem' 'tls cafile = /var/lib/samba/private/tls/ca.pem' >> /etc/samba/smb.conf"
+    fi
+  fi
 }
 
 if docker compose version >/dev/null 2>&1; then
@@ -71,6 +75,7 @@ function container_running() {
 }
 
 install_tls_certs
+configure_samba_tls
 
 if [[ "$(container_running)" != "true" ]]; then
   echo "Waiting for container $CONTAINER_NAME to start..."
