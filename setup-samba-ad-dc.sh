@@ -31,6 +31,14 @@ if [[ -z "${CERT_DIR:-}" ]]; then
   CERT_DIR="${HOME}/GitHub/aws_confluent_kafka_setup/confluent_kafka_setup_secure/selfSignedCertificates"
 fi
 
+ROOT_CA_CANDIDATES=("${ROOT_CA_CERT:-root-ca.crt}" "ca.crt")
+for candidate in "${ROOT_CA_CANDIDATES[@]}"; do
+  if [[ -f "$CERT_DIR/$candidate" ]]; then
+    ROOT_CA_CERT="$candidate"
+    break
+  fi
+done
+
 function install_tls_certs() {
   if [[ -d "$CERT_DIR" ]]; then
     if [[ -f "$CERT_DIR/$CERT_BASENAME.crt" && -f "$CERT_DIR/$CERT_BASENAME.key" ]]; then
