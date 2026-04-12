@@ -102,62 +102,16 @@ The AD server stays on your Mac. Any applications on AWS EC2, EKS, or AKS should
 
 ### AD endpoint details
 
-- LDAP host: `<your-mac-host-or-ip>`
+- LDAP host: `ldap://ldap.nrsh13-hadoop.com:389`
 - LDAP port: `389`
-- LDAPS port: `636`
 - Bind DN: `CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com`
 - Bind password: `Dummy@2929`
 - Base DN: `CN=Users,DC=nrsh13-hadoop,DC=com`
 - User search filter: `(&(objectClass=user)(sAMAccountName={username}))`
-- Group name: `A_HADOOP_ADMINS`
-> Note: Because the domain is `nrsh13-hadoop.com`, the correct domain component form is `DC=nrsh13-hadoop,DC=com`. If you instead provision the domain as `nrsh13.hadoop.com`, then you would use `DC=nrsh13,DC=hadoop,DC=com`.
+- Group name: `memberof=CN=A_HADOOP_ADMINS,CN=Users,DC=nrsh13-hadoop,DC=com`
+
 ### Sample cloud app query
 
 ```bash
-ldapsearch -H ldap://<your-mac-host-or-ip>:389 \
-  -x \
-  -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
-  -w 'Dummy@2929' \
-  -b "CN=Users,DC=nrsh13-hadoop,DC=com" \
-  'userPrincipalName=*768019*'
+ldapsearch -LLL   -H ldap://ldap.nrsh13-hadoop.com:389   -x   -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com"   -w 'Dummy@2929'   -b "DC=nrsh13-hadoop,DC=com"   "(sAMAccountName=768019)"
 ```
-
-### Connectivity guidance
-
-- Your Mac must be reachable from the cloud app host.
-- Use VPN, SSH tunnel, or secure networking if your Mac is behind NAT/firewall.
-- Do not expose the AD host directly to the public internet without access controls.
-- If you need encrypted traffic, use `ldaps://` only after importing the Samba certificate into the client truststore.
-
-## AWS EC2 / EKS / AKS notes
-
-This repository does not deploy AD on AWS. It documents how cloud applications can authenticate against your Mac-hosted AD.
-
-### AWS EC2
-
-- Use Docker or Docker Compose on an EC2 host if you want a separate AD instance.
-- Use private networking and security groups to restrict access.
-- Mount durable storage for `/var/lib/samba` and `/etc/samba`.
-
-### EKS / AKS
-
-- Use internal networking or VPN to reach the Mac-hosted AD.
-- Do not expose the AD server directly to the public internet.
-- Use a secure service discovery pattern and load only trusted traffic.
-
-## Integration summary
-
-Use these values in your application:
-
-- LDAP base DN: `CN=Users,DC=nrsh13-hadoop,DC=com`
-- Bind DN: `CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com`
-- Bind password: `Dummy@2929`
-- User search filter: `(&(objectClass=user)(sAMAccountName={username}))`
-- Group name: `A_HADOOP_ADMINS`
-- Users: `768019`, `768020`
-
-## Notes
-
-- Both users `768019` and `768020` have password `Dummy@2929`.
-- The group `A_HADOOP_ADMINS` includes both users.
-- Use a dedicated production AD environment for serious workloads.
