@@ -1,0 +1,27 @@
+services:
+  ad-dc:
+    build: .
+    image: local-samba-ad-dc:latest
+    container_name: samba-ad-dc
+    hostname: dc
+    domainname: nrsh13-hadoop.com
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - seccomp=unconfined
+    ports:
+      - "389:389"
+      - "636:636"
+      - "88:88"
+      - "464:464"
+      - "53:53/udp"
+      - "139:139"
+      - "445:445"
+    volumes:
+      - samba-data:/var/lib/samba
+      - samba-config:/etc/samba
+    command: ["tail", "-f", "/dev/null"]
+
+volumes:
+  samba-data:
+  samba-config:
