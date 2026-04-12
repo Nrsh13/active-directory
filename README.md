@@ -8,12 +8,14 @@ This repository provides a local Samba Active Directory Domain Controller runnin
 - NetBIOS domain: `NRSH13-HADOOP`
 - Kerberos realm: `NRSH13-HADOOP.COM`
 - Administrator password: `Dummy@2929`
-- AD group: `A_HADOOP_ADMINS`
+- AD groups:
+  - `A_HADOOP_ADMINS`
+  - `A_Kafka_Users_Dev`
 - AD users:
   - `768019`
   - `768020`
 - Both users have password: `Dummy@2929`
-- Both users are members of `A_HADOOP_ADMINS`
+- Both users are members of both AD groups
 
 ## Repository files
 

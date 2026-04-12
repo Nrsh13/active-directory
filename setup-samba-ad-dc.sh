@@ -14,6 +14,7 @@ USER_PASS="${USER_PASS:-Dummy@2929}"
 USER2_NAME="${USER2_NAME:-768020}"
 USER2_PASS="${USER2_PASS:-Dummy@2929}"
 GROUP_NAME="${GROUP_NAME:-A_HADOOP_ADMINS}"
+SECOND_GROUP_NAME="${SECOND_GROUP_NAME:-A_Kafka_Users_Dev}"
 CERT_BASENAME="${CERT_BASENAME:-kafka-lab01.nrsh13-hadoop.com}"
 ROOT_CA_CERT="${ROOT_CA_CERT:-root-ca.crt}"
 DEFAULT_CERT_DIRS=("${HOME}/GitHub/aws_confluent_kafka_setup/confluent_kafka_setup_secure/selfSignedCertificates" "/var/ssl/private")
@@ -174,15 +175,20 @@ for user in "$USER_NAME" "$USER2_NAME"; do
   exec_container "samba-tool user setpassword '$user' --newpassword='$USER_PASS'"
 done
 
-if ! exec_container "samba-tool group list | grep -x '$GROUP_NAME'" >/dev/null 2>&1; then
-  echo "Creating group $GROUP_NAME..."
-  exec_container "samba-tool group add '$GROUP_NAME'"
-else
-  echo "Group $GROUP_NAME already exists; skipping creation."
-fi
+for group in "$GROUP_NAME" "$SECOND_GROUP_NAME"; do
+  if ! exec_container "samba-tool group list | grep -x '$group'" >/dev/null 2>&1; then
+    echo "Creating group $group..."
+    exec_container "samba-tool group add '$group'"
+  else
+    echo "Group $group already exists; skipping creation."
+  fi
 
-echo "Adding users to group $GROUP_NAME..."
-exec_container "samba-tool group addmembers '$GROUP_NAME' '$USER_NAME,$USER2_NAME' || true"
+done
+
+echo "Adding users to groups $GROUP_NAME and $SECOND_GROUP_NAME..."
+for group in "$GROUP_NAME" "$SECOND_GROUP_NAME"; do
+  exec_container "samba-tool group addmembers '$group' '$USER_NAME,$USER2_NAME' || true"
+done
 
 echo
 echo "=== Test LDAP query inside container ==="
