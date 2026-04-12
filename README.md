@@ -50,9 +50,12 @@ cd /Users/nrsh13/Desktop/active-directory
 ### Verify from host
 
 ```bash
+export LDAPTLS_CACERT='/path/to/root-ca.crt'
+
 ldapsearch -LLL \
   -H ldap://127.0.0.1:389 \
   -x \
+  -ZZ \
   -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
   -w 'Dummy@2929' \
   -b "CN=Users,DC=nrsh13-hadoop,DC=com" \
@@ -62,9 +65,12 @@ ldapsearch -LLL \
 ### Search for user `768019`
 
 ```bash
+export LDAPTLS_CACERT='/path/to/root-ca.crt'
+
 ldapsearch -LLL \
   -H ldap://127.0.0.1:389 \
   -x \
+  -ZZ \
   -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
   -w 'Dummy@2929' \
   -b "CN=Users,DC=nrsh13-hadoop,DC=com" \
@@ -74,9 +80,12 @@ ldapsearch -LLL \
 ### Bind as user `768019`
 
 ```bash
+export LDAPTLS_CACERT='/path/to/root-ca.crt'
+
 ldapsearch -LLL \
   -H ldap://127.0.0.1:389 \
   -x \
+  -ZZ \
   -D "CN=768019,CN=Users,DC=nrsh13-hadoop,DC=com" \
   -w 'Dummy@2929' \
   -b "CN=Users,DC=nrsh13-hadoop,DC=com" \
@@ -107,7 +116,11 @@ The AD server stays on your Mac. Any applications on AWS EC2, EKS, or AKS should
 ### Sample cloud app query
 
 ```bash
+export LDAPTLS_CACERT='/path/to/root-ca.crt'
+
 ldapsearch -H ldap://<your-mac-host-or-ip>:389 \
+  -x \
+  -ZZ \
   -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
   -w 'Dummy@2929' \
   -b "CN=Users,DC=nrsh13-hadoop,DC=com" \

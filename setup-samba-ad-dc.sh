@@ -183,8 +183,8 @@ echo "Adding users to group $GROUP_NAME..."
 exec_container "samba-tool group addmembers '$GROUP_NAME' '$USER_NAME,$USER2_NAME' || true"
 
 echo
-echo "=== Test LDAP query inside container ==="
-exec_container "ldapsearch -LLL -H ldap://localhost -x -D 'CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com' -w '$ADMIN_PASS' -b 'DC=nrsh13-hadoop,DC=com' '(sAMAccountName=$USER_NAME)'"
+echo "=== Test LDAP query inside container using StartTLS ==="
+exec_container "LDAPTLS_CACERT=/var/lib/samba/private/tls/ca.pem ldapsearch -LLL -H ldap://localhost -x -ZZ -D 'CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com' -w '$ADMIN_PASS' -b 'DC=nrsh13-hadoop,DC=com' '(sAMAccountName=$USER_NAME)'"
 
 echo
 cat <<EOF
@@ -200,10 +200,12 @@ Sample ldapsearch command from the Mac host:
 
 export ADMIN_PASS='$ADMIN_PASS'
 export USER_NAME='$USER_NAME'
+export LDAPTLS_CACERT='/path/to/root-ca.crt'
 
 ldapsearch -LLL \
   -H ldap://127.0.0.1:389 \
   -x \
+  -ZZ \
   -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
   -w '$ADMIN_PASS' \
   -b "DC=nrsh13-hadoop,DC=com" \
