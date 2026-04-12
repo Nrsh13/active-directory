@@ -7,12 +7,12 @@ This repository provides a local Samba Active Directory Domain Controller runnin
 - Domain: `nrsh13-hadoop.com`
 - NetBIOS domain: `NRSH13-HADOOP`
 - Kerberos realm: `NRSH13-HADOOP.COM`
-- Administrator password: `DummyPass123!@2929`
+- Administrator password: `Dummy@2929`
 - AD group: `A_HADOOP_ADMINS`
 - AD users:
   - `768019`
   - `768020`
-- Both users have password: `DummyPass123!@2929`
+- Both users have password: `Dummy@2929`
 - Both users are members of `A_HADOOP_ADMINS`
 
 ## Repository files
@@ -41,7 +41,7 @@ cd /Users/nrsh13/Desktop/active-directory
 - builds the Docker image
 - starts the Samba AD DC container
 - provisions the AD domain
-- sets Administrator password to `DummyPass123!@2929`
+- sets Administrator password to `Dummy@2929`
 - creates users `768019` and `768020`
 - creates group `A_HADOOP_ADMINS`
 - adds both users to the group
@@ -54,7 +54,7 @@ LDAPTLS_REQCERT=never ldapsearch -LLL \
   -H ldaps://127.0.0.1 \
   -x \
   -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
-  -w 'DummyPass123!@2929' \
+  -w 'Dummy@2929' \
   -b "CN=Users,DC=nrsh13-hadoop,DC=com" \
   'userPrincipalName=*768019*'
 ```
@@ -66,7 +66,7 @@ LDAPTLS_REQCERT=never ldapsearch -LLL \
   -H ldaps://127.0.0.1 \
   -x \
   -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
-  -w 'DummyPass123!@2929' \
+  -w 'Dummy@2929' \
   -b "CN=Users,DC=nrsh13-hadoop,DC=com" \
   'userPrincipalName=*768019*'
 ```
@@ -78,7 +78,7 @@ LDAPTLS_REQCERT=never ldapsearch -LLL \
   -H ldaps://127.0.0.1 \
   -x \
   -D "CN=768019,CN=Users,DC=nrsh13-hadoop,DC=com" \
-  -w 'DummyPass123!@2929' \
+  -w 'Dummy@2929' \
   -b "CN=Users,DC=nrsh13-hadoop,DC=com" \
   'userPrincipalName=*768019*'
 ```
@@ -99,7 +99,7 @@ The AD server stays on your Mac. Any applications on AWS EC2, EKS, or AKS should
 - LDAP port: `389`
 - LDAPS port: `636`
 - Bind DN: `CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com`
-- Bind password: `DummyPass123!@2929`
+- Bind password: `Dummy@2929`
 - Base DN: `CN=Users,DC=nrsh13-hadoop,DC=com`
 - User search filter: `(&(objectClass=user)(sAMAccountName={username}))`
 - Group name: `A_HADOOP_ADMINS`
@@ -109,7 +109,7 @@ The AD server stays on your Mac. Any applications on AWS EC2, EKS, or AKS should
 ```bash
 ldapsearch -H ldaps://<your-mac-host-or-ip>:636 \
   -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
-  -w 'DummyPass123!@2929' \
+  -w 'Dummy@2929' \
   -b "CN=Users,DC=nrsh13-hadoop,DC=com" \
   'userPrincipalName=*768019*'
 ```
@@ -143,13 +143,13 @@ Use these values in your application:
 
 - LDAP base DN: `CN=Users,DC=nrsh13-hadoop,DC=com`
 - Bind DN: `CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com`
-- Bind password: `DummyPass123!@2929`
+- Bind password: `Dummy@2929`
 - User search filter: `(&(objectClass=user)(sAMAccountName={username}))`
 - Group name: `A_HADOOP_ADMINS`
 - Users: `768019`, `768020`
 
 ## Notes
 
-- Both users `768019` and `768020` have password `DummyPass123!@2929`.
+- Both users `768019` and `768020` have password `Dummy@2929`.
 - The group `A_HADOOP_ADMINS` includes both users.
 - Use a dedicated production AD environment for serious workloads.

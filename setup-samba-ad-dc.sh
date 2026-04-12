@@ -8,11 +8,11 @@ CONTAINER_NAME="${CONTAINER_NAME:-samba-ad-dc}"
 DOMAIN="${DOMAIN:-NRSH13-HADOOP}"
 REALM="${REALM:-NRSH13-HADOOP.COM}"
 DNS_DOMAIN="${DNS_DOMAIN:-nrsh13-hadoop.com}"
-ADMIN_PASS="${ADMIN_PASS:-DummyPass123!@2929}"
+ADMIN_PASS="${ADMIN_PASS:-Dummy@2929}"
 USER_NAME="${USER_NAME:-768019}"
-USER_PASS="${USER_PASS:-DummyPass123!@2929}"
+USER_PASS="${USER_PASS:-Dummy@2929}"
 USER2_NAME="${USER2_NAME:-768020}"
-USER2_PASS="${USER2_PASS:-DummyPass123!@2929}"
+USER2_PASS="${USER2_PASS:-Dummy@2929}"
 GROUP_NAME="${GROUP_NAME:-A_HADOOP_ADMINS}"
 
 echo "=== Samba AD DC setup script ==="
@@ -98,19 +98,20 @@ echo "=== Test LDAP query inside container ==="
 exec_container "LDAPTLS_REQCERT=never ldapsearch -LLL -H ldaps://localhost -x -D 'CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com' -w '$ADMIN_PASS' -b 'DC=nrsh13-hadoop,DC=com' '(sAMAccountName=$USER_NAME)'"
 
 echo
-cat <<'EOF'
+cat <<EOF
 === Completed ===
 
 Your Samba AD DC container is running as: $CONTAINER_NAME
 LDAP host: localhost
 Base DN: DC=nrsh13-hadoop,DC=com
 Realm: $REALM
+Password: $ADMIN_PASS
 
 Sample ldapsearch command from the Mac host:
 
 export LDAPTLS_REQCERT=never
-export ADMIN_PASS='DummyPass123!@2929'
-export USER_NAME='768019'
+export ADMIN_PASS='$ADMIN_PASS'
+export USER_NAME='$USER_NAME'
 
 LDAPTLS_REQCERT=never ldapsearch -LLL \
   -H ldaps://127.0.0.1 \
