@@ -39,6 +39,46 @@ for candidate in "${ROOT_CA_CANDIDATES[@]}"; do
   fi
 done
 
+function find_cert_key_pair() {
+  local dir="$1"
+  if [[ -f "$dir/$CERT_BASENAME.crt" && -f "$dir/$CERT_BASENAME.key" ]]; then
+    return 0
+  fi
+
+  for certfile in "$dir"/*.crt; do
+    [[ -e "$certfile" ]] || continue
+    local base
+    base=$(basename "$certfile" .crt)
+    if [[ "$base" == "root-ca" || "$base" == "ca" ]]; then
+      continue
+    fi
+    if [[ -f "$dir/$base.key" ]]; then
+      CERT_BASENAME="$base"
+      echo "Using cert/key pair: $CERT_BASENAME.crt and $CERT_BASENAME.key"
+      return 0
+    fi
+  done
+
+  for keyfile in "$dir"/*.key; do
+    [[ -e "$keyfile" ]] || continue
+    local base
+    base=$(basename "$keyfile" .key)
+    if [[ -f "$dir/$base.crt" ]]; then
+      CERT_BASENAME="$base"
+      echo "Using cert/key pair: $CERT_BASENAME.crt and $CERT_BASENAME.key"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+if [[ -d "$CERT_DIR" ]]; then
+  if ! find_cert_key_pair "$CERT_DIR"; then
+    echo "Warning: expected cert/key pair not found in $CERT_DIR" >&2
+  fi
+fi
+
 function install_tls_certs() {
   if [[ -d "$CERT_DIR" ]]; then
     if [[ -f "$CERT_DIR/$CERT_BASENAME.crt" && -f "$CERT_DIR/$CERT_BASENAME.key" ]]; then
