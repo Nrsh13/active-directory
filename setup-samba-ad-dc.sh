@@ -14,9 +14,22 @@ USER_PASS="${USER_PASS:-Dummy@2929}"
 USER2_NAME="${USER2_NAME:-768020}"
 USER2_PASS="${USER2_PASS:-Dummy@2929}"
 GROUP_NAME="${GROUP_NAME:-A_HADOOP_ADMINS}"
-CERT_DIR="${CERT_DIR:-${HOME}/GitHub/aws_confluent_kafka_setup/confluent_kafka_setup_secure/selfSignedCertificates}"
 CERT_BASENAME="${CERT_BASENAME:-kafka-lab01.nrsh13-hadoop.com}"
 ROOT_CA_CERT="${ROOT_CA_CERT:-root-ca.crt}"
+DEFAULT_CERT_DIRS=("${HOME}/GitHub/aws_confluent_kafka_setup/confluent_kafka_setup_secure/selfSignedCertificates" "/var/ssl/private")
+if [[ -n "${CERT_DIR:-}" ]]; then
+  CERT_DIR="${CERT_DIR}"
+else
+  for candidate in "${DEFAULT_CERT_DIRS[@]}"; do
+    if [[ -d "$candidate" ]]; then
+      CERT_DIR="$candidate"
+      break
+    fi
+  done
+fi
+if [[ -z "${CERT_DIR:-}" ]]; then
+  CERT_DIR="${HOME}/GitHub/aws_confluent_kafka_setup/confluent_kafka_setup_secure/selfSignedCertificates"
+fi
 
 function install_tls_certs() {
   if [[ -d "$CERT_DIR" ]]; then
