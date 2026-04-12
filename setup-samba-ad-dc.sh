@@ -17,7 +17,7 @@ GROUP_NAME="${GROUP_NAME:-A_HADOOP_ADMINS}"
 SECOND_GROUP_NAME="${SECOND_GROUP_NAME:-A_Kafka_Users_Dev}"
 CERT_BASENAME="${CERT_BASENAME:-kafka-lab01.nrsh13-hadoop.com}"
 ROOT_CA_CERT="${ROOT_CA_CERT:-root-ca.crt}"
-DEFAULT_CERT_DIRS=("${HOME}/GitHub/aws_confluent_kafka_setup/confluent_kafka_setup_secure/selfSignedCertificates" "/var/ssl/private")
+DEFAULT_CERT_DIRS=("/usr/nrsh13/GitHub/aws_confluent_kafka_setup/confluent_kafka_setup_secure/selfSignedCertificates" "/var/ssl/private")
 if [[ -n "${CERT_DIR:-}" ]]; then
   CERT_DIR="${CERT_DIR}"
 else
@@ -29,7 +29,7 @@ else
   done
 fi
 if [[ -z "${CERT_DIR:-}" ]]; then
-  CERT_DIR="${HOME}/GitHub/aws_confluent_kafka_setup/confluent_kafka_setup_secure/selfSignedCertificates"
+  CERT_DIR="/usr/nrsh13/GitHub/aws_confluent_kafka_setup/confluent_kafka_setup_secure/selfSignedCertificates"
 fi
 
 ROOT_CA_CANDIDATES=("${ROOT_CA_CERT:-root-ca.crt}" "ca.crt")
