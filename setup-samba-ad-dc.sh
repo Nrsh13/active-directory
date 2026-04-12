@@ -14,6 +14,27 @@ USER_PASS="${USER_PASS:-Dummy@2929}"
 USER2_NAME="${USER2_NAME:-768020}"
 USER2_PASS="${USER2_PASS:-Dummy@2929}"
 GROUP_NAME="${GROUP_NAME:-A_HADOOP_ADMINS}"
+CERT_DIR="${CERT_DIR:-${HOME}/GitHub/aws_confluent_kafka_setup/confluent_kafka_setup_secure/selfSignedCertificates}"
+CERT_BASENAME="${CERT_BASENAME:-kafka-lab01.nrsh13-hadoop.com}"
+ROOT_CA_CERT="${ROOT_CA_CERT:-root-ca.crt}"
+
+function install_tls_certs() {
+  if [[ -d "$CERT_DIR" ]]; then
+    if [[ -f "$CERT_DIR/$CERT_BASENAME.crt" && -f "$CERT_DIR/$CERT_BASENAME.key" ]]; then
+      echo "Installing TLS certs from $CERT_DIR into Samba container..."
+      exec_container "mkdir -p /var/lib/samba/private/tls"
+      docker cp "$CERT_DIR/$CERT_BASENAME.crt" "$CONTAINER_NAME":/var/lib/samba/private/tls/cert.pem
+      docker cp "$CERT_DIR/$CERT_BASENAME.key" "$CONTAINER_NAME":/var/lib/samba/private/tls/key.pem
+      if [[ -f "$CERT_DIR/$ROOT_CA_CERT" ]]; then
+        docker cp "$CERT_DIR/$ROOT_CA_CERT" "$CONTAINER_NAME":/var/lib/samba/private/tls/ca.pem
+      fi
+    else
+      echo "Warning: expected cert/key not found in $CERT_DIR" >&2
+    fi
+  else
+    echo "Warning: certificate directory $CERT_DIR does not exist" >&2
+  fi
+}
 
 echo "=== Samba AD DC setup script ==="
 
@@ -48,6 +69,8 @@ function exec_container() {
 function container_running() {
   docker inspect -f '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null || echo false
 }
+
+install_tls_certs
 
 if [[ "$(container_running)" != "true" ]]; then
   echo "Waiting for container $CONTAINER_NAME to start..."
