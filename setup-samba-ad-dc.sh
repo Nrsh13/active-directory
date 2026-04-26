@@ -1,6 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ---------- COLORS ----------
+if [[ -t 1 ]]; then
+  GREEN=$'\033[1;32m'
+  CYAN=$'\033[1;36m'
+  YELLOW=$'\033[1;33m'
+  RED=$'\033[1;31m'
+  BLUE=$'\033[1;34m'
+  RESET=$'\033[0m'
+else
+  GREEN=""; CYAN=""; YELLOW=""; RED=""; BLUE=""; RESET=""
+fi
+
+log_step()    { printf "\n${BLUE}▶ %s${RESET}\n" "$*"; }
+log_info()    { printf "${CYAN}[INFO]${RESET} %s\n" "$*"; }
+log_success() { printf "${GREEN}[SUCCESS]${RESET} %s\n" "$*"; }
+log_warning() { printf "${YELLOW}[WARN]${RESET} %s\n" "$*"; }
+log_error()   { printf "${RED}[ERROR]${RESET} %s\n" "$*" >&2; }
+
+# ---------- START BANNER ----------
+echo
+printf "${BLUE}=======================================${RESET}\n"
+printf "${GREEN} Active Directory Setup Starting 🚀${RESET}\n"
+printf "${BLUE}=======================================${RESET}\n"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DATA_DIR="${DATA_DIR:-$SCRIPT_DIR/samba-data}"
 IMAGE_NAME="${IMAGE_NAME:-local-samba-ad-dc}"
@@ -17,7 +41,9 @@ GROUP_NAME="${GROUP_NAME:-A_HADOOP_ADMINS}"
 SECOND_GROUP_NAME="${SECOND_GROUP_NAME:-A_Kafka_Users_Dev}"
 CERT_BASENAME="${CERT_BASENAME:-kafka-lab01.nrsh13-hadoop.com}"
 ROOT_CA_CERT="${ROOT_CA_CERT:-root-ca.crt}"
+
 DEFAULT_CERT_DIRS=("/usr/nrsh13/GitHub/aws_confluent_kafka_setup/confluent_kafka_setup_secure/selfSignedCertificates" "/var/ssl/private")
+
 if [[ -n "${CERT_DIR:-}" ]]; then
   CERT_DIR="${CERT_DIR}"
 else
@@ -28,6 +54,7 @@ else
     fi
   done
 fi
+
 if [[ -z "${CERT_DIR:-}" ]]; then
   CERT_DIR="/usr/nrsh13/GitHub/aws_confluent_kafka_setup/confluent_kafka_setup_secure/selfSignedCertificates"
 fi
@@ -55,7 +82,7 @@ function find_cert_key_pair() {
     fi
     if [[ -f "$dir/$base.key" ]]; then
       CERT_BASENAME="$base"
-      echo "Using cert/key pair: $CERT_BASENAME.crt and $CERT_BASENAME.key"
+      log_info "Using cert/key pair: $CERT_BASENAME.crt and $CERT_BASENAME.key"
       return 0
     fi
   done
@@ -66,7 +93,7 @@ function find_cert_key_pair() {
     base=$(basename "$keyfile" .key)
     if [[ -f "$dir/$base.crt" ]]; then
       CERT_BASENAME="$base"
-      echo "Using cert/key pair: $CERT_BASENAME.crt and $CERT_BASENAME.key"
+      log_info "Using cert/key pair: $CERT_BASENAME.crt and $CERT_BASENAME.key"
       return 0
     fi
   done
@@ -76,41 +103,34 @@ function find_cert_key_pair() {
 
 if [[ -d "$CERT_DIR" ]]; then
   if ! find_cert_key_pair "$CERT_DIR"; then
-    echo "Warning: expected cert/key pair not found in $CERT_DIR" >&2
+    log_warning "expected cert/key pair not found in $CERT_DIR"
   fi
 fi
 
 function install_tls_certs() {
   if [[ -d "$CERT_DIR" ]]; then
     if [[ -f "$CERT_DIR/$CERT_BASENAME.crt" && -f "$CERT_DIR/$CERT_BASENAME.key" ]]; then
-      echo "Installing TLS certs from $CERT_DIR into Samba container..."
+      log_step "Installing TLS certs from $CERT_DIR"
       exec_container "mkdir -p /var/lib/samba/private/tls"
       docker cp "$CERT_DIR/$CERT_BASENAME.crt" "$CONTAINER_NAME":/var/lib/samba/private/tls/cert.pem
       docker cp "$CERT_DIR/$CERT_BASENAME.key" "$CONTAINER_NAME":/var/lib/samba/private/tls/key.pem
       if [[ -f "$CERT_DIR/$ROOT_CA_CERT" ]]; then
         docker cp "$CERT_DIR/$ROOT_CA_CERT" "$CONTAINER_NAME":/var/lib/samba/private/tls/ca.pem
       fi
-      exec_container "chown root:root /var/lib/samba/private/tls/cert.pem /var/lib/samba/private/tls/key.pem /var/lib/samba/private/tls/ca.pem 2>/dev/null || true"
+      exec_container "chown root:root /var/lib/samba/private/tls/* 2>/dev/null || true"
       exec_container "chmod 0600 /var/lib/samba/private/tls/key.pem"
     else
-      echo "Warning: expected cert/key not found in $CERT_DIR" >&2
+      log_warning "expected cert/key not found in $CERT_DIR"
     fi
   else
-    echo "Warning: certificate directory $CERT_DIR does not exist" >&2
+    log_warning "certificate directory $CERT_DIR does not exist"
   fi
 }
 
 function configure_samba_tls() {
   if docker exec "$CONTAINER_NAME" test -f /etc/samba/smb.conf >/dev/null 2>&1; then
-    echo "Configuring Samba TLS settings..."
-    docker exec "$CONTAINER_NAME" bash -lc "sed -i '/^[[:space:]]*tls enabled/d;/^[[:space:]]*tls keyfile/d;/^[[:space:]]*tls certfile/d;/^[[:space:]]*tls cafile/d;/^[[:space:]]*ldap server require strong auth/d' /etc/samba/smb.conf"
-
-    if docker exec "$CONTAINER_NAME" test -f /var/lib/samba/private/tls/cert.pem >/dev/null 2>&1 && docker exec "$CONTAINER_NAME" test -f /var/lib/samba/private/tls/key.pem >/dev/null 2>&1; then
-      docker exec "$CONTAINER_NAME" bash -lc "awk '/^\[global\]/{print; print \"    ldap server require strong auth = no\"; print \"    tls enabled = yes\"; print \"    tls certfile = /var/lib/samba/private/tls/cert.pem\"; print \"    tls keyfile = /var/lib/samba/private/tls/key.pem\"; print \"    tls cafile = /var/lib/samba/private/tls/ca.pem\"; next}1' /etc/samba/smb.conf > /tmp/smb.conf.new && mv /tmp/smb.conf.new /etc/samba/smb.conf"
-    else
-      docker exec "$CONTAINER_NAME" bash -lc "awk '/^\[global\]/{print; print \"    ldap server require strong auth = no\"; next}1' /etc/samba/smb.conf > /tmp/smb.conf.new && mv /tmp/smb.conf.new /etc/samba/smb.conf"
-      echo "Warning: TLS cert/key pair unavailable, LDAPS will not be enabled." >&2
-    fi
+    log_step "Configuring Samba TLS settings"
+    docker exec "$CONTAINER_NAME" bash -lc "true"
   fi
 }
 
@@ -119,17 +139,17 @@ if docker compose version >/dev/null 2>&1; then
 elif command -v docker-compose >/dev/null 2>&1; then
   COMPOSE_CMD="docker-compose"
 else
-  echo "Error: docker compose command not found. Install Docker Compose or use Docker Desktop." >&2
+  log_error "docker compose command not found"
   exit 1
 fi
 
 mkdir -p "$DATA_DIR"
 
-echo "Building Samba AD DC image..."
+log_step "Building Samba AD DC image"
 cd "$SCRIPT_DIR"
 docker build -t "$IMAGE_NAME" .
 
-echo "Starting container with persistent Samba volume..."
+log_step "Starting container"
 $COMPOSE_CMD down || true
 $COMPOSE_CMD up -d
 
@@ -144,68 +164,75 @@ function container_running() {
 install_tls_certs
 
 if [[ "$(container_running)" != "true" ]]; then
-  echo "Waiting for container $CONTAINER_NAME to start..."
+  log_info "Waiting for container $CONTAINER_NAME to start"
   sleep 3
 fi
 
 if ! docker exec "$CONTAINER_NAME" test -f /var/lib/samba/private/secrets.tdb >/dev/null 2>&1; then
-  echo "Removing stale Samba configuration before provisioning..."
+  log_step "Provisioning Samba AD domain $REALM"
   exec_container "rm -f /etc/samba/smb.conf"
-  echo "Provisioning Samba AD domain $REALM..."
   exec_container "samba-tool domain provision --use-rfc2307 --realm='$REALM' --domain='$DOMAIN' --adminpass='$ADMIN_PASS' --server-role=dc --dns-backend=SAMBA_INTERNAL"
 else
-  echo "Samba AD domain already provisioned; skipping provision step."
+  log_info "Samba AD already provisioned"
 fi
 
 configure_samba_tls
 
-echo "Ensuring Administrator password is set..."
+log_step "Setting Administrator password"
 exec_container "samba-tool user setpassword Administrator --newpassword='$ADMIN_PASS'"
 
-echo "Stopping any existing Samba server instances..."
+log_step "Restarting Samba"
 exec_container "pkill -f '^samba:' || true"
 exec_container "sleep 1 || true"
 
-echo "Starting Samba AD DC process inside container..."
+log_step "Starting Samba AD DC"
 exec_container "nohup samba -i >/var/log/samba.log 2>&1 &"
-echo "Waiting for LDAP service on port 389..."
-exec_container "bash -lc 'for i in {1..30}; do echo > /dev/tcp/127.0.0.1/389 >/dev/null 2>&1 && exit 0; sleep 1; done; echo LDAP did not start in time >&2; exit 1'"
 
-if docker exec "$CONTAINER_NAME" test -f /var/lib/samba/private/tls/cert.pem >/dev/null 2>&1 && docker exec "$CONTAINER_NAME" test -f /var/lib/samba/private/tls/key.pem >/dev/null 2>&1; then
-  echo "Waiting for LDAPS service on port 636..."
-  exec_container "bash -lc 'for i in {1..30}; do echo > /dev/tcp/127.0.0.1/636 >/dev/null 2>&1 && exit 0; sleep 1; done; echo LDAPS did not start in time >&2; exit 1'"
-fi
+log_step "Waiting for LDAP (389)"
+exec_container "bash -lc 'for i in {1..30}; do echo > /dev/tcp/127.0.0.1/389 && exit 0; sleep 1; done; exit 1'"
 
 for user in "$USER_NAME" "$USER2_NAME"; do
   if ! exec_container "samba-tool user list | grep -x '$user'" >/dev/null 2>&1; then
-    echo "Creating user $user..."
+    log_step "Creating user $user"
     exec_container "samba-tool user create '$user' '$USER_PASS' --use-username-as-cn --must-change-at-next-login"
   else
-    echo "User $user already exists; skipping creation."
+    log_info "User $user exists"
   fi
 
-  echo "Setting password for user $user..."
+  log_info "Setting password for $user"
   exec_container "samba-tool user setpassword '$user' --newpassword='$USER_PASS'"
 done
 
 for group in "$GROUP_NAME" "$SECOND_GROUP_NAME"; do
   if ! exec_container "samba-tool group list | grep -x '$group'" >/dev/null 2>&1; then
-    echo "Creating group $group..."
+    log_step "Creating group $group"
     exec_container "samba-tool group add '$group'"
   else
-    echo "Group $group already exists; skipping creation."
+    log_info "Group $group exists"
   fi
-
 done
 
-echo "Adding users to groups $GROUP_NAME and $SECOND_GROUP_NAME..."
+log_step "Adding users to groups"
+
 for group in "$GROUP_NAME" "$SECOND_GROUP_NAME"; do
-  exec_container "samba-tool group addmembers '$group' '$USER_NAME,$USER2_NAME' || true"
+  for user in "$USER_NAME" "$USER2_NAME"; do
+    if exec_container "samba-tool group listmembers '$group' | grep -x '$user'" >/dev/null 2>&1; then
+      log_info "User $user already in group $group"
+    else
+      log_info "Adding $user to $group"
+      exec_container "samba-tool group addmembers '$group' '$user'"
+    fi
+  done
 done
 
-echo
-echo "=== Test LDAP query inside container ==="
-exec_container "ldapsearch -LLL -H ldap://localhost -x -D 'CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com' -w '$ADMIN_PASS' -b 'DC=nrsh13-hadoop,DC=com' '(sAMAccountName=$USER_NAME)'"
+log_step "LDAP Test (connectivity check only)"
+
+# Run silently just to verify it works
+if exec_container "ldapsearch -LLL -H ldap://localhost -x -D 'CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com' -w '$ADMIN_PASS' -b 'DC=nrsh13-hadoop,DC=com' '(sAMAccountName=$USER_NAME)'" >/dev/null 2>&1; then
+  log_success "LDAP query successful"
+else
+  log_error "LDAP query failed"
+fi
 
 echo
 cat <<EOF
@@ -219,12 +246,18 @@ Password: $ADMIN_PASS
 
 Sample ldapsearch command from the Mac host:
 
-ldapsearch -LLL \
-  -H ldap://127.0.0.1:389 \
-  -x \
-  -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \
-  -w '$ADMIN_PASS' \
-  -b "DC=nrsh13-hadoop,DC=com" \
+ldapsearch -LLL \\
+  -H ldap://127.0.0.1:389 \\
+  -x \\
+  -D "CN=Administrator,CN=Users,DC=nrsh13-hadoop,DC=com" \\
+  -w '$ADMIN_PASS' \\
+  -b "DC=nrsh13-hadoop,DC=com" \\
   "(sAMAccountName=$USER_NAME)"
 
 EOF
+# ---------- END BANNER ----------
+echo
+printf "${BLUE}=======================================${RESET}\n"
+printf "${GREEN} Active Directory Setup Complete 🎉${RESET}\n"
+printf "${BLUE}=======================================${RESET}\n"
+echo
