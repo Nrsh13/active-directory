@@ -1,0 +1,25 @@
+# Environment variables (never commit real credentials)
+.env
+.env.local
+*.env
+
+# Docker volumes (local Samba data)
+samba-data/
+samba-config/
+
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Temporary files
+*.tmp
+*.log
