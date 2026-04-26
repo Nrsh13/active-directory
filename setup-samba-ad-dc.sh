@@ -13,7 +13,7 @@ else
   GREEN=""; CYAN=""; YELLOW=""; RED=""; BLUE=""; RESET=""
 fi
 
-log_step()    { printf "\n${BLUE}▶ %s${RESET}\n" "$*"; }
+log_step()    { printf "\n${BLUE}▶ %s\n${RESET}\n" "$*"; }
 log_info()    { printf "${CYAN}[INFO]${RESET} %s\n" "$*"; }
 log_success() { printf "${GREEN}[SUCCESS]${RESET} %s\n" "$*"; }
 log_warning() { printf "${YELLOW}[WARN]${RESET} %s\n" "$*"; }
@@ -129,8 +129,16 @@ function install_tls_certs() {
 
 function configure_samba_tls() {
   if docker exec "$CONTAINER_NAME" test -f /etc/samba/smb.conf >/dev/null 2>&1; then
-    log_step "Configuring Samba TLS settings"
-    docker exec "$CONTAINER_NAME" bash -lc "true"
+    echo "Configuring Samba TLS settings..."
+    docker exec "$CONTAINER_NAME" bash -lc "sed -i '/^[[:space:]]*tls enabled/d;/^[[:space:]]*tls keyfile/d;/^[[:space:]]*tls certfile/d;/^[[:space:]]*tls cafile/d;/^[[:space:]]*ldap server require strong auth/d' /etc/samba/smb.conf"
+
+    ##  ldap server require strong auth must be set to no to allow Samba to accept simple binds over TLS, which is required for LDAPS to work properly. If this is not set, you may see errors about "strong authentication required" when trying to connect via LDAPS. Setting it to no allows Samba to accept the simple bind as long as it's protected by TLS encryption.
+    if docker exec "$CONTAINER_NAME" test -f /var/lib/samba/private/tls/cert.pem >/dev/null 2>&1 && docker exec "$CONTAINER_NAME" test -f /var/lib/samba/private/tls/key.pem >/dev/null 2>&1; then
+      docker exec "$CONTAINER_NAME" bash -lc "awk '/^\[global\]/{print; print \"    ldap server require strong auth = no\"; print \"    tls enabled = yes\"; print \"    tls certfile = /var/lib/samba/private/tls/cert.pem\"; print \"    tls keyfile = /var/lib/samba/private/tls/key.pem\"; print \"    tls cafile = /var/lib/samba/private/tls/ca.pem\"; next}1' /etc/samba/smb.conf > /tmp/smb.conf.new && mv /tmp/smb.conf.new /etc/samba/smb.conf"
+    else
+      docker exec "$CONTAINER_NAME" bash -lc "awk '/^\[global\]/{print; print \"    ldap server require strong auth = no\"; next}1' /etc/samba/smb.conf > /tmp/smb.conf.new && mv /tmp/smb.conf.new /etc/samba/smb.conf"
+      echo "Warning: TLS cert/key pair unavailable, LDAPS will not be enabled." >&2
+    fi
   fi
 }
 
@@ -145,11 +153,11 @@ fi
 
 mkdir -p "$DATA_DIR"
 
-log_step "Building Samba AD DC image"
+log_step "Building Samba AD DC image..."
 cd "$SCRIPT_DIR"
 docker build -t "$IMAGE_NAME" .
 
-log_step "Starting container"
+log_step "Starting container with persistent Samba volume..."
 $COMPOSE_CMD down || true
 $COMPOSE_CMD up -d
 
@@ -234,17 +242,14 @@ else
   log_error "LDAP query failed"
 fi
 
-echo
-cat <<EOF
-=== Completed ===
+log_step "Sample ldapsearch command from the Mac host:"
 
+cat <<EOF
 Your Samba AD DC container is running as: $CONTAINER_NAME
 LDAP host: localhost
 Base DN: DC=nrsh13-hadoop,DC=com
 Realm: $REALM
 Password: $ADMIN_PASS
-
-Sample ldapsearch command from the Mac host:
 
 ldapsearch -LLL \\
   -H ldap://127.0.0.1:389 \\
